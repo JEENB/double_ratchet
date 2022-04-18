@@ -9,6 +9,7 @@ from cryptography.hazmat.backends import default_backend
 from Cryptodome.Cipher import AES
 
 import socket, threading
+from utils import *
 
 ROOT_KEY = 'I7xv5oMpgFhWhxiLi3cwAAw9onHQmIwis10TdLWC97Q='
 nickname = input("Choose your nickname: ")
@@ -16,16 +17,15 @@ nickname = input("Choose your nickname: ")
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)      #socket initialization
 client.connect(('127.0.0.1', 7976))                             #connecting client to server
 
+msg_type = {
+	'pub_key': '0x01',  #msg with publickey starts with 0x01 
+	'message': '0x02',  #general message starts with 0x02
+	'other' : '0x00',
+	'msg_n_pubKey': '0x03', #message with public_key start with 0x03
+}
 
-def b64(msg):
-    # base64 encoding helper function
-    return base64.encodebytes(msg).decode('utf-8').strip()
 
-def hkdf(inp, length):
-    # use HKDF on an input to derive a key
-    hkdf = HKDF(algorithm=hashes.SHA256(), length=length, salt=b'',
-                info=b'', backend=default_backend())
-    return hkdf.derive(inp)
+
 
 class SymmRatchet(object):
     def __init__(self, key):
@@ -37,6 +37,25 @@ class SymmRatchet(object):
         self.state = output[:32]
         outkey, iv = output[32:64], output[64:]
         return outkey, iv
+
+class client(object):
+	def __init__(self) -> None:
+		self.IKc = X25519PrivateKey.generate()
+		self.SPKc = X25519PrivateKey.generate()
+		self.OPKc = X25519PrivateKey.generate()
+		self.DHratchet = X25519PrivateKey.generate()
+
+	def x3DH(self, root_key):
+		self.sk = b64_decode(root_key)
+
+	def init_ratchets(self):
+		self.root_ratchet = SymmRatchet(self.sk)
+		self.recv_ratchet = SymmRatchet(self.root_ratchet.next()[0])
+		self.send_ratchet = SymmRatchet(self.root_ratchet.next()[0])
+
+	def dh_ratchet(self, ):
+		pass
+
 
 def receive():
     while True:                                                 #making valid connection

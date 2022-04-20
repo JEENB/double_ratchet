@@ -182,3 +182,18 @@ alice.send(bob, b'Hello Bob!')
 
 # Bob uses that information to sync with Alice and send her a message
 bob.send(alice, b'Hello to you too, Alice!')
+
+
+# Alice sends Bob a message and her new DH ratchet public key
+alice.send(bob, b'asfd Bob!')
+
+# Bob uses that information to sync with Alice and send her a message
+bob.send(alice, b'Heasdfo, Alice!')
+
+
+
+# Alice sends Bob a message and her new DH ratchet public key
+alice.send(bob, b'Hasdfllo Bob!')
+
+# Bob uses that information to sync with Alice and send her a message
+bob.send(alice, b'Hello asdfasd, Alice!')

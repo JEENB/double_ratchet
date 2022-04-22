@@ -25,7 +25,10 @@ class SymmRatchet(object):
 
     def next(self, inp=b''):
         # turn the ratchet, changing the state and yielding a new key and IV
+        print("state", self.state)
+        print("inp", inp)
         output = hkdf(self.state + inp, 80)
+        print("output", output)
         self.state = output[:32]
         outkey, iv = output[32:64], output[64:]
         return outkey, iv
@@ -47,6 +50,7 @@ class Bob(object):
         dh4 = self.OPKb.exchange(alice.EKa.public_key())
         # the shared key is KDF(DH1||DH2||DH3||DH4)
         self.sk = hkdf(dh1 + dh2 + dh3 + dh4, 32)
+        print(f"sk:: {self.sk}  \n\n")
         print('[Bob]\tShared key:', b64(self.sk))
 
     def init_ratchets(self):
@@ -184,16 +188,16 @@ alice.send(bob, b'Hello Bob!')
 bob.send(alice, b'Hello to you too, Alice!')
 
 
-# Alice sends Bob a message and her new DH ratchet public key
-alice.send(bob, b'asfd Bob!')
+# # Alice sends Bob a message and her new DH ratchet public key
+# alice.send(bob, b'asfd Bob!')
 
-# Bob uses that information to sync with Alice and send her a message
-bob.send(alice, b'Heasdfo, Alice!')
+# # Bob uses that information to sync with Alice and send her a message
+# bob.send(alice, b'Heasdfo, Alice!')
 
 
 
-# Alice sends Bob a message and her new DH ratchet public key
-alice.send(bob, b'Hasdfllo Bob!')
+# # Alice sends Bob a message and her new DH ratchet public key
+# alice.send(bob, b'Hasdfllo Bob!')
 
-# Bob uses that information to sync with Alice and send her a message
-bob.send(alice, b'Hello asdfasd, Alice!')
+# # Bob uses that information to sync with Alice and send her a message
+# bob.send(alice, b'Hello asdfasd, Alice!')

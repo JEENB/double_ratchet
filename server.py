@@ -1,6 +1,8 @@
 import socket
 import threading   
-import json                                             #Libraries import
+import json
+import time
+
 
 host = '127.0.0.1'                                                      #LocalHost
 port = 7976                                                             #Choosing unreserved port
@@ -20,22 +22,23 @@ def broadcast(message):                                                 #broadca
 def handle(client):                                         
     while True:
         try:                                                            #recieving valid messages from client
-            message = client.recv(1024).decode('ascii')
+            
+            message = client.recv(1024).decode('utf-8')
             act_msg = message.split(":")[1]
             print(act_msg)
             if act_msg in nicknames:
-                print(True)
+                # print(True)
                 send_pk = pub_key_bundle[act_msg]
                 print(send_pk)
-                client.send(str(send_pk).encode('ascii'))
+                client.send(str(send_pk).encode('utf-8'))
             else:
-                broadcast(message.encode('ascii'))
+                broadcast(message.encode('utf-8'))
         except:                                                         #removing clients
             index = clients.index(client)
             clients.remove(client)
             client.close()
             nickname = nicknames[index]
-            broadcast('{} left!'.format(nickname).encode('ascii'))
+            broadcast('{} left!'.format(nickname).encode('utf-8'))
             nicknames.remove(nickname)
             break
 
@@ -45,10 +48,10 @@ def receive():                                                          #accepti
         print("Connected with {}".format(str(address)))   
 
         #send initial message to client    
-        client.send('NICKNAME'.encode('ascii'))
+        client.send('NICKNAME'.encode('utf-8'))
 
         #receive nickname and pk from client
-        nickname = client.recv(2048).decode('ascii')
+        nickname = client.recv(2048).decode('utf-8')
         client_pk = client.recv(2048)
         pub_key_bundle[nickname] = client_pk
         nicknames.append(nickname)
@@ -56,12 +59,17 @@ def receive():                                                          #accepti
 
         print("Nickname is {}".format(nickname))
         print(f'[{nickname}]: PK received')
-        broadcast("{} joined!".format(nickname).encode('ascii'))
-        client.send('Connected to server!'.encode('ascii'))
+        broadcast("{} joined!".format(nickname).encode('utf-8'))
+        client.send('Connected to server!'.encode('utf-8'))
+
 
         #sending public key bundle to client
         pk_bundle_endoded = "\nAvailable Users\n" + str(nicknames)
-        client.send(pk_bundle_endoded.encode('ascii'))
+        client.send(pk_bundle_endoded.encode('utf-8'))
+        
+        time.sleep(0.5)
+        client.send("Talk".encode('utf-8'))
+
         thread = threading.Thread(target=handle, args=(client,))
         thread.start()
 

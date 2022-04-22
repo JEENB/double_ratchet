@@ -1,5 +1,3 @@
-import base64
-
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric import x25519
@@ -19,19 +17,11 @@ import ast
 # SUBSEQUENT CLIENT IS ALICE  #
 ###                         ###
 
-ROOT_KEY = 'I7xv5oMpgFhWhxiLi3cwAAw9onHQmIwis10TdLWC97Q='
+ROOT_KEY = b"o\x99\xa1\xdd@#\xc0\x0b \xec\xf5\x80GI\xbf\xca\x8b\x16}L;j\x02f\x07'\x88\x8f\x816e4"
 nickname = input("Choose your nickname: ")
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)      #socket initialization
 client.connect(('127.0.0.1', 7976))                             #connecting client to server
-
-
-msg_type = {
-	'pub_key': '0x01',  #msg with publickey starts with 0x01 
-	'message': '0x02',  #general message starts with 0x02
-	'other' : '0x00',
-	'msg_n_pubKey': '0x03', #message with public_key start with 0x03
-}
 
 class MsgType():
     def __init__(self) -> None:
@@ -45,7 +35,9 @@ class SymmetricRatchet(object):
         self.state = key
     
     def next(self, inp=b''):
+        # print("state",self.state)
         output = hkdf(self.state + inp, 80)
+        # print(output)
         self.state = output[:32]
         outkey = output[32:64]
         iv = output[64:]
@@ -63,8 +55,9 @@ class Client(object):
 
     def dh_ratchet(self, alice_pk):
         dh_send = self.DHratchet.exchange(alice_pk)
-        shared_send = self.root_ratchet(dh_send)[0]
+        shared_send = self.root_ratchet.next(dh_send)[0]
         self.send_ratchet = SymmetricRatchet(shared_send)
+        print('Send ratchet seed:', b64_encode(shared_send))
 
     def send(self, msg):
         key, iv = self.send_ratchet.next()
@@ -76,23 +69,49 @@ class Client(object):
         key, iv = self.recv_ratchet.next()
         msg = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher))
 
+type = MsgType()
+
+
+alice = Client()
+pk_obj = alice.DHratchet.public_key()
+init_pk = pk_obj.public_bytes(encoding=serialization.Encoding.Raw,format=serialization.PublicFormat.Raw)
+
+
+'''
+Initial Client is alice, subsequent client is BOB
+
+Here Bob tries to communicate with Alice first
+
+'''
+
 def receive():
-    while True:                                                 #making valid connection
+    while True: #making valid connection
         try:
-            message = client.recv(1024).decode('ascii')
-            if message == 'NICKNAME':
+            message = client.recv(2048).decode('utf-8')
+
+            if message == 'NICKNAME':  #hello message received from the server. 
+                # print("##                       ##")
+                # print("#   Registration Phase    #")
+                # print("##                       ##")
                 init_server_msg = nickname
-                client.send(init_server_msg.encode('ascii'))
+                client.send(init_server_msg.encode('utf-8'))
                 client.send(init_pk)
-                # client.send(str(type.pub_key+init_pk).encode('ascii'))
-            elif message[0:1] == "[":  ## receiving pk bundle from server. 
-                available_users =  ast.literal_eval(message) # convert string dictionary to dict format
-                print(available_users)
-            elif message[0:2] == "b'":
+
+            
+            elif message[0:1] == "[":  ## receiving pk bundle from server i.e a list. 
+                available_users =  ast.literal_eval(message) # convert list
+                for user in available_users:
+                    print(user)
+
+            elif message[0:4] == "Talk":
+                print("Who would you like to talk to??")
+
+            elif message[0:2] == "b'":   ## if message is pubkey then starts with b(byte)
                 mes = ast.literal_eval(message)
                 global alice_pk
                 alice_pk = x25519.X25519PublicKey.from_public_bytes(mes)
                 print("PK received from server\nYou can start sending messages")
+
             else:
                 print(message)
         except:                                                 #case on wrong ip/port details
@@ -100,17 +119,19 @@ def receive():
             client.close()
             break
 def write():
-    while True:                                                 #message layout
+    count = 0
+    while True:                                 #message layout
         message = '{}:{}'.format(nickname, input(''))
-        client.send(message.encode('ascii'))
-
-
-type = MsgType()
-
-
-alice = Client()
-pk_obj = alice.DHratchet.public_key()
-init_pk = pk_obj.public_bytes(encoding=serialization.Encoding.Raw,format=serialization.PublicFormat.Raw)
+        count += 1
+        if count > 1: 
+            alice.init_ratchets()
+            # print(f"alice_pk: {alice_pk}\n\n")
+            alice.dh_ratchet(alice_pk)
+            cipher, pk = alice.send(message)
+            print(f'cipher: {b64_encode(cipher)}')
+            client.send(str(cipher).encode('utf-8'))
+        else:
+            client.send(message.encode('utf-8'))
 
 receive_thread = threading.Thread(target=receive)               #receiving multiple messages
 receive_thread.start()

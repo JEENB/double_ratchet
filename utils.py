@@ -14,6 +14,7 @@ def b64_decode(msg):
 
 def pad(msg):
     # pkcs7 padding
+    msg = bytes(msg,'ascii')
     num = 16 - (len(msg) % 16)
     return msg + bytes([num] * num)
 

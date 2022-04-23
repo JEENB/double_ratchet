@@ -10,12 +10,8 @@ import json
 import socket, threading
 from utils import *
 import ast
+import time
 
-
-###                         ###
-# INITIAL CLIENT IS BOB       #
-# SUBSEQUENT CLIENT IS ALICE  #
-###                         ###
 
 ROOT_KEY = b"o\x99\xa1\xdd@#\xc0\x0b \xec\xf5\x80GI\xbf\xca\x8b\x16}L;j\x02f\x07'\x88\x8f\x816e4"
 nickname = input("Choose your nickname: ")
@@ -59,12 +55,12 @@ class Client(object):
         self.send_ratchet = SymmetricRatchet(shared_send)
         print('Send ratchet seed:', b64_encode(shared_send))
 
-    def send(self, msg):
+    def enc(self, msg):
         key, iv = self.send_ratchet.next()
         cipher = AES.new(key, AES.MODE_CBC, iv).encrypt(pad(msg))
         return cipher, self.DHratchet.public_key()
 
-    def recv(self, cipher, bob_pub_key):
+    def dec(self, cipher, bob_pub_key):
         self.dh_ratchet(bob_pub_key)
         key, iv = self.recv_ratchet.next()
         msg = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher))
@@ -81,6 +77,8 @@ init_pk = pk_obj.public_bytes(encoding=serialization.Encoding.Raw,format=seriali
 Initial Client is alice, subsequent client is BOB
 
 Here Bob tries to communicate with Alice first
+
+
 
 '''
 
@@ -106,11 +104,17 @@ def receive():
             elif message[0:4] == "Talk":
                 print("Who would you like to talk to??")
 
-            elif message[0:2] == "b'":   ## if message is pubkey then starts with b(byte)
+            elif message[0:2] == "b'" or message[0:2] == 'b"':   ## if message is pubkey then starts with b(byte)
                 mes = ast.literal_eval(message)
                 global alice_pk
                 alice_pk = x25519.X25519PublicKey.from_public_bytes(mes)
                 print("PK received from server\nYou can start sending messages")
+
+            # elif message[-1] == "=":
+            #     print(message)
+            #     message = b64_decode(message)
+            #     alice.dec(message, alice_pk)
+
 
             else:
                 print(message)
@@ -127,11 +131,21 @@ def write():
             alice.init_ratchets()
             # print(f"alice_pk: {alice_pk}\n\n")
             alice.dh_ratchet(alice_pk)
-            cipher, pk = alice.send(message)
-            print(f'cipher: {b64_encode(cipher)}')
-            client.send(str(cipher).encode('utf-8'))
+            cipher, pk = alice.enc(message)
+            pk_byte = pk_to_bytes(pk)
+
+            print(f'cipher: {cipher}')
+            time.sleep(5)
+            try:
+                # client.send(pk_byte)
+                # time.sleep(0.5)
+                client.send(str(b64_encode(cipher)).encode('utf-8'))
+            except:
+                print("error ")
+                client.send("Error occured while sending message".encode('utf-8'))
+            time.sleep(0.5)
         else:
-            client.send(message.encode('utf-8'))
+            client.send(str(message).encode('utf-8'))
 
 receive_thread = threading.Thread(target=receive)               #receiving multiple messages
 receive_thread.start()

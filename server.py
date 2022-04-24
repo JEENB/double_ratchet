@@ -1,5 +1,8 @@
-#Coded by Yashraj Singh Chouhan
-import socket, threading                                                #Libraries import
+import socket
+import threading   
+import json
+import time
+
 
 host = '127.0.0.1'                                                      #LocalHost
 port = 7976                                                             #Choosing unreserved port
@@ -10,6 +13,10 @@ server.listen()
 
 clients = []
 nicknames = []
+pub_key_bundle = {}
+
+
+
 
 def broadcast(message):                                                 #broadcast function declaration
     for client in clients:
@@ -18,28 +25,60 @@ def broadcast(message):                                                 #broadca
 def handle(client):                                         
     while True:
         try:                                                            #recieving valid messages from client
-            message = client.recv(1024)
-            broadcast(message)
+            message = client.recv(2048).decode('utf-8')
+            print(message)
+            try:
+                act_msg = message.split(":")[1]
+                print(act_msg)
+            except:
+                act_msg = message
+            if act_msg in nicknames:
+                # print(True)
+                send_pk = pub_key_bundle[act_msg]
+                print(send_pk)
+                client.send(str(send_pk).encode('utf-8'))
+            else:
+                for i in clients:
+                    if(i != server and i != client):
+                        i.sendall(message.encode('utf-8'))
+                # broadcast(message.encode('utf-8'))
+
         except:                                                         #removing clients
             index = clients.index(client)
             clients.remove(client)
             client.close()
             nickname = nicknames[index]
-            broadcast('{} left!'.format(nickname).encode('ascii'))
+            broadcast('{} left!'.format(nickname).encode('utf-8'))
             nicknames.remove(nickname)
             break
 
 def receive():                                                          #accepting multiple clients
     while True:
         client, address = server.accept()
-        print("Connected with {}".format(str(address)))       
-        client.send('NICKNAME'.encode('ascii'))
-        nickname = client.recv(1024).decode('ascii')
+        print("Connected with {}".format(str(address)))   
+        #send initial message to client    
+        client.send('NICKNAME'.encode('utf-8'))
+
+        #receive nickname and pk from client
+        nickname = client.recv(2048).decode('utf-8')
+        client_pk = client.recv(2048)
+        pub_key_bundle[nickname] = client_pk
         nicknames.append(nickname)
         clients.append(client)
+
         print("Nickname is {}".format(nickname))
-        broadcast("{} joined!".format(nickname).encode('ascii'))
-        client.send('Connected to server!'.encode('ascii'))
+        print(f'[{nickname}]: PK received')
+        broadcast("{} joined!".format(nickname).encode('utf-8'))
+        client.send('Connected to server!'.encode('utf-8'))
+
+
+        #sending public key bundle to client
+        pk_bundle_endoded = "\nAvailable Users\n" + str(nicknames)
+        client.send(pk_bundle_endoded.encode('utf-8'))
+        
+        # time.sleep(0.5)
+        # client.send("Talk".encode('utf-8'))
+
         thread = threading.Thread(target=handle, args=(client,))
         thread.start()
 

@@ -67,7 +67,7 @@ class Client(object):
         self.receive_ratchet(alice_pk)
         key, iv = self.recv_ratchet.next()
         msg = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher))
-        print(msg)
+        print(str(msg,'utf-8'))
 
 
 
@@ -93,17 +93,22 @@ def receive():
             message = client.recv(2048).decode('utf-8')
 
             if message == 'NICKNAME':  #hello message received from the server. 
-                # print("##                       ##")
-                # print("#   Registration Phase    #")
-                # print("##                       ##")
+                print("##                       ##")
+                print("#   Registration Phase    #")
+                print("##                       ##\n")
                 init_server_msg = nickname
                 client.send(init_server_msg.encode('utf-8'))
                 client.send(init_pk)
+                print("Public Key Sent to user")
 
             
             elif message[0:1] == "[":  ## receiving pk bundle from server i.e a list. 
                 available_users =  ast.literal_eval(message) # convert list
+                print("##                       ##")
+                print("#   Active Users          #")
+                print("##                       ##\n")
                 print(available_users)
+                print("Who would you like to talk to??")
 
             elif message[0:4] == "Talk":
                 print("Who would you like to talk to??")

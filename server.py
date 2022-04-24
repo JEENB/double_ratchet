@@ -29,13 +29,13 @@ def handle(client):
             print(message)
             try:
                 act_msg = message.split(":")[1]
-                print(act_msg)
+                # print(act_msg)
             except:
                 act_msg = message
             if act_msg in nicknames:
                 # print(True)
                 send_pk = pub_key_bundle[act_msg]
-                print(send_pk)
+                # print(send_pk)
                 client.send(str(send_pk).encode('utf-8'))
             else:
                 for i in clients:

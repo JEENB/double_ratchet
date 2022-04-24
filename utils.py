@@ -7,11 +7,11 @@ from cryptography.hazmat.primitives.asymmetric import x25519
 
 def b64_encode(msg):
     # base64 encoding helper function
-    return base64.encodebytes(msg).decode('utf-8').strip()
+    return base64.b64encode(msg)
 
 def b64_decode(msg):
 	# base64 decoding helper function
-	return base64.decodebytes(msg).decode('utf-8')
+	return base64.b64decode(msg)
 
 
 def pad(msg):
@@ -38,3 +38,4 @@ def pk_to_bytes(pk_obj):
 
 def byte_to_pk(byte):
     return x25519.X25519PublicKey.from_public_bytes(byte)
+

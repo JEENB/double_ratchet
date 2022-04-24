@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric import x25519
@@ -19,12 +20,6 @@ nickname = input("Choose your nickname: ")
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)      #socket initialization
 client.connect(('127.0.0.1', 7976))                             #connecting client to server
 
-class MsgType():
-    def __init__(self) -> None:
-        self.pub_key = '0x01'
-        self.msg = '0x02'
-        self.msg_n_pubkey = '0x03'
-        self.other = '0x00'
 
 class SymmetricRatchet(object):
     def __init__(self, key) -> None:
@@ -50,25 +45,35 @@ class Client(object):
         self.send_ratchet = SymmetricRatchet(self.root_ratchet.next()[0])
 
     def dh_ratchet(self, alice_pk):
+        self.DHratchet = X25519PrivateKey.generate()
         dh_send = self.DHratchet.exchange(alice_pk)
         shared_send = self.root_ratchet.next(dh_send)[0]
         self.send_ratchet = SymmetricRatchet(shared_send)
         print('Send ratchet seed:', b64_encode(shared_send))
+
+    def receive_ratchet(self,alice_pk):
+        dh_recv = self.DHratchet.exchange(alice_pk)
+        shared_recv = self.root_ratchet.next(dh_recv)[0]
+        self.recv_ratchet = SymmetricRatchet(shared_recv)
+        print('Recv ratchet seed:', b64_encode(shared_recv))
+
 
     def enc(self, msg):
         key, iv = self.send_ratchet.next()
         cipher = AES.new(key, AES.MODE_CBC, iv).encrypt(pad(msg))
         return cipher, self.DHratchet.public_key()
 
-    def dec(self, cipher, bob_pub_key):
-        self.dh_ratchet(bob_pub_key)
+    def dec(self, cipher, alice_pk):
+        self.receive_ratchet(alice_pk)
         key, iv = self.recv_ratchet.next()
         msg = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher))
+        print(msg)
 
-type = MsgType()
 
 
 alice = Client()
+alice.init_ratchets()
+
 pk_obj = alice.DHratchet.public_key()
 init_pk = pk_obj.public_bytes(encoding=serialization.Encoding.Raw,format=serialization.PublicFormat.Raw)
 
@@ -98,52 +103,50 @@ def receive():
             
             elif message[0:1] == "[":  ## receiving pk bundle from server i.e a list. 
                 available_users =  ast.literal_eval(message) # convert list
-                for user in available_users:
-                    print(user)
+                print(available_users)
 
             elif message[0:4] == "Talk":
                 print("Who would you like to talk to??")
 
             elif message[0:2] == "b'" or message[0:2] == 'b"':   ## if message is pubkey then starts with b(byte)
-                mes = ast.literal_eval(message)
                 global alice_pk
-                alice_pk = x25519.X25519PublicKey.from_public_bytes(mes)
-                print("PK received from server\nYou can start sending messages")
-
-            # elif message[-1] == "=":
-            #     print(message)
-            #     message = b64_decode(message)
-            #     alice.dec(message, alice_pk)
-
-
+                if message[-2] == "=":
+                    # print("received_msg_nPK", alice_pk)
+                    byte_msg = ast.literal_eval(message)
+                    decode_msg = b64_decode(byte_msg)
+                    # print("decoded msg:", decode_msg)
+                    alice.dec(decode_msg, alice_pk)
+                else:
+                    mes = ast.literal_eval(message)
+                    # print(len(mes))
+                    alice_pk = x25519.X25519PublicKey.from_public_bytes(mes)
+                    print("PK received")
             else:
                 print(message)
-        except:                                                 #case on wrong ip/port details
+        except Exception as e:                                                 #case on wrong ip/port details
+            print(e)
             print("An error occured!")
             client.close()
             break
 def write():
     count = 0
+
     while True:                                 #message layout
         message = '{}:{}'.format(nickname, input(''))
         count += 1
+        try:
+            if alice_pk:
+                count = 2
+        except:
+            pass
         if count > 1: 
-            alice.init_ratchets()
-            # print(f"alice_pk: {alice_pk}\n\n")
             alice.dh_ratchet(alice_pk)
             cipher, pk = alice.enc(message)
             pk_byte = pk_to_bytes(pk)
-
-            print(f'cipher: {cipher}')
-            time.sleep(5)
-            try:
-                # client.send(pk_byte)
-                # time.sleep(0.5)
-                client.send(str(b64_encode(cipher)).encode('utf-8'))
-            except:
-                print("error ")
-                client.send("Error occured while sending message".encode('utf-8'))
+            client.send(str(pk_byte).encode('utf-8'))
             time.sleep(0.5)
+            c = b64_encode(cipher)
+            client.send(str(c).encode('utf-8'))
         else:
             client.send(str(message).encode('utf-8'))
 

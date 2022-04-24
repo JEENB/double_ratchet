@@ -15,12 +15,8 @@ clients = []
 nicknames = []
 pub_key_bundle = {}
 
-class MessageType:
-    def __init__(self) -> None:
-        self.pk = 0x01
-        self.message = 0x02
 
-msg_type = MessageType()
+
 
 def broadcast(message):                                                 #broadcast function declaration
     for client in clients:
@@ -29,8 +25,7 @@ def broadcast(message):                                                 #broadca
 def handle(client):                                         
     while True:
         try:                                                            #recieving valid messages from client
-            time.sleep(5)
-            message = client.recv(1024).decode('utf-8')
+            message = client.recv(2048).decode('utf-8')
             print(message)
             try:
                 act_msg = message.split(":")[1]
@@ -40,11 +35,14 @@ def handle(client):
             if act_msg in nicknames:
                 # print(True)
                 send_pk = pub_key_bundle[act_msg]
-                type = str(msg_type.pk)
                 print(send_pk)
                 client.send(str(send_pk).encode('utf-8'))
             else:
-                broadcast(message.encode('utf-8'))
+                for i in clients:
+                    if(i != server and i != client):
+                        i.sendall(message.encode('utf-8'))
+                # broadcast(message.encode('utf-8'))
+
         except:                                                         #removing clients
             index = clients.index(client)
             clients.remove(client)
@@ -58,7 +56,6 @@ def receive():                                                          #accepti
     while True:
         client, address = server.accept()
         print("Connected with {}".format(str(address)))   
-
         #send initial message to client    
         client.send('NICKNAME'.encode('utf-8'))
 

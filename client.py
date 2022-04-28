@@ -14,6 +14,12 @@ import ast
 import time
 
 
+'''
+##                  ##
+#    CLI Version     #
+##                  ##
+'''
+
 ROOT_KEY = b"o\x99\xa1\xdd@#\xc0\x0b \xec\xf5\x80GI\xbf\xca\x8b\x16}L;j\x02f\x07'\x88\x8f\x816e4"
 nickname = input("Choose your nickname: ")
 

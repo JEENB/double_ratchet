@@ -2,14 +2,18 @@ import socket
 import threading   
 import json
 import time
+from utils import b64_encode
 
-
+print("Starting Server....")
+time.sleep(1)
 host = '127.0.0.1'                                                      #LocalHost
 port = 7976                                                             #Choosing unreserved port
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)              #socket initialization
 server.bind((host, port))                                               #binding host and port to socket
 server.listen()
+
+print(f"Server Listening on {host, port}")
 
 clients = []
 nicknames = []
@@ -26,7 +30,7 @@ def handle(client):
     while True:
         try:                                                            #recieving valid messages from client
             message = client.recv(2048).decode('utf-8')
-            print(message)
+            print(str(b64_encode(message), 'utf-8'))
             try:
                 act_msg = message.split(":")[1]
                 # print(act_msg)

@@ -1,33 +1,21 @@
 # import all the required modules
 import socket
 import threading
+import ast
+import time
+
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
+
 from utils import *
-
-
-from logging import raiseExceptions
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
-from cryptography.hazmat.primitives.asymmetric import x25519
-from cryptography.hazmat.primitives.asymmetric.ed25519 import  Ed25519PublicKey, Ed25519PrivateKey
-
-
-from Cryptodome.Cipher import AES
-
-import json
-import socket, threading
-from utils import *
-import ast
-import time
-# import all functions /
-# everything from chat.py file
+from double_ratchet import *
 
 PORT = 7976
 SERVER = "127.0.0.1"
 ADDRESS = (SERVER, PORT)
 FORMAT = "utf-8"
+
 
 # Create a new client socket
 # and connect to the server
@@ -35,72 +23,14 @@ client = socket.socket(socket.AF_INET,
 					socket.SOCK_STREAM)
 client.connect(ADDRESS)
 
-ROOT_KEY = b"o\x99\xa1\xdd@#\xc0\x0b \xec\xf5\x80GI\xbf\xca\x8b\x16}L;j\x02f\x07'\x88\x8f\x816e4"
 
-class SymmetricRatchet(object):
-    def __init__(self, key) -> None:
-        self.state = key
-    
-    def next(self, inp=b''):
-        # print("state",self.state)
-        output = hkdf(self.state + inp, 80)
-        # print(output)
-        self.state = output[:32]
-        outkey = output[32:64]
-        iv = output[64:]
-        return outkey, iv
-    
-class Client(object):
-    def __init__(self) -> None:
-        self.DHratchet = X25519PrivateKey.generate()
-        self.sk = ROOT_KEY
-
-    def init_ratchets(self):
-        self.root_ratchet = SymmetricRatchet(self.sk)
-        self.recv_ratchet = SymmetricRatchet(self.root_ratchet.next()[0])
-        self.send_ratchet = SymmetricRatchet(self.root_ratchet.next()[0])
-
-    def dh_ratchet(self, alice_pk):
-        self.DHratchet = X25519PrivateKey.generate()
-        dh_send = self.DHratchet.exchange(alice_pk)
-        shared_send = self.root_ratchet.next(dh_send)[0]
-        self.send_ratchet = SymmetricRatchet(shared_send)
-        print('Send ratchet seed:', b64_encode(shared_send))
-
-    def receive_ratchet(self,alice_pk):
-        dh_recv = self.DHratchet.exchange(alice_pk)
-        shared_recv = self.root_ratchet.next(dh_recv)[0]
-        self.recv_ratchet = SymmetricRatchet(shared_recv)
-        print('Recv ratchet seed:', b64_encode(shared_recv))
-
-
-    def enc(self, msg):
-        key, iv = self.send_ratchet.next()
-        cipher = AES.new(key, AES.MODE_CBC, iv).encrypt(pad(msg))
-        return cipher, self.DHratchet.public_key()
-
-    def dec(self, cipher, alice_pk):
-        self.receive_ratchet(alice_pk)
-        key, iv = self.recv_ratchet.next()
-        msg = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher))
-        print(str(msg,'utf-8'))
-        return(str(msg, 'utf-8'))
-		
+#start the ratchets once the client connects to the server. 
 alice = Client()
 alice.init_ratchets()
 
 pk_obj = alice.DHratchet.public_key()
 init_pk = pk_obj.public_bytes(encoding=serialization.Encoding.Raw,format=serialization.PublicFormat.Raw)
 
-
-'''
-Initial Client is alice, subsequent client is BOB
-
-Here Bob tries to communicate with Alice first
-
-
-
-'''
 
 # GUI class for the chat
 class GUI:
@@ -115,10 +45,11 @@ class GUI:
 		self.login = Toplevel()
 		# set the title
 		self.login.title("Login")
-		self.login.resizable(width = False,
-							height = False)
+		self.login.resizable(width = True,
+							height = True)
 		self.login.configure(width = 400,
-							height = 300)
+							height = 300,
+							)
 		# create a Label
 		self.pls = Label(self.login,
 					text = "Please login to continue",
@@ -130,10 +61,10 @@ class GUI:
 					rely = 0.07)
 		# create a Label
 		self.labelName = Label(self.login,
-							text = "Name: ",
+							text = "Username: ",
 							font = "Helvetica 12")
 		
-		self.labelName.place(relheight = 0.2,
+		self.labelName.place(relheight = 0.1,
 							relx = 0.1,
 							rely = 0.2)
 		
@@ -143,7 +74,7 @@ class GUI:
 							font = "Helvetica 14")
 		
 		self.entryName.place(relwidth = 0.4,
-							relheight = 0.12,
+							relheight = 0.1,
 							relx = 0.35,
 							rely = 0.2)
 		
@@ -176,9 +107,9 @@ class GUI:
 		self.alice_pk = None
 		# to show chat window
 		self.Window.deiconify()
-		self.Window.title("CHATROOM")
-		self.Window.resizable(width = False,
-							height = False)
+		self.Window.title("SASTA Signal")
+		self.Window.resizable(width = True,
+							height = True)
 		self.Window.configure(width = 470,
 							height = 550,
 							bg = "#17202A")
@@ -272,7 +203,7 @@ class GUI:
 		while True:
 			try:
 				message = client.recv(2048).decode(FORMAT)
-				print(message)
+				# print(message)
 				
 				# if the messages from the server is NAME send the client's name
 				if message == 'NICKNAME':

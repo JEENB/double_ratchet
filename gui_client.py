@@ -65,21 +65,28 @@ class Client(object):
         dh_send = self.DHratchet.exchange(alice_pk)
         shared_send = self.root_ratchet.next(dh_send)[0]
         self.send_ratchet = SymmetricRatchet(shared_send)
-        print('Send ratchet seed:', b64_encode(shared_send))
+        print("\n** Key State **")
+        print(f"Diffie Hellman Key: {str(b64_encode(dh_send), 'utf-8')}")
+        print('Send ratchet seed:', str(b64_encode(shared_send),'utf-8'))
 
     def receive_ratchet(self,alice_pk):
         dh_recv = self.DHratchet.exchange(alice_pk)
         shared_recv = self.root_ratchet.next(dh_recv)[0]
         self.recv_ratchet = SymmetricRatchet(shared_recv)
-        print('Recv ratchet seed:', b64_encode(shared_recv))
+        print("\n** Key State **")
+        print(f"Diffie Hellman Key: {str(b64_encode(dh_recv), 'utf-8')}")
+        print('Recv ratchet seed:', str(b64_encode(shared_recv), 'utf-8'))
 
 
     def enc(self, msg):
         key, iv = self.send_ratchet.next()
         cipher = AES.new(key, AES.MODE_CBC, iv).encrypt(pad(msg))
+        print(f"\nSend Cipher: {str(b64_encode(cipher), 'utf-8')}")
         return cipher, self.DHratchet.public_key()
 
     def dec(self, cipher, alice_pk):
+        print(f"\nRecv Cipher: {str(b64_encode(cipher), 'utf-8')}")
+
         self.receive_ratchet(alice_pk)
         key, iv = self.recv_ratchet.next()
         msg = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher))
@@ -176,7 +183,7 @@ class GUI:
 		self.alice_pk = None
 		# to show chat window
 		self.Window.deiconify()
-		self.Window.title("CHATROOM")
+		self.Window.title("SASTA Signal")
 		self.Window.resizable(width = False,
 							height = False)
 		self.Window.configure(width = 470,
@@ -272,7 +279,7 @@ class GUI:
 		while True:
 			try:
 				message = client.recv(2048).decode(FORMAT)
-				print(message)
+				# print(message)
 				
 				# if the messages from the server is NAME send the client's name
 				if message == 'NICKNAME':
